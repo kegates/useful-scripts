@@ -1,0 +1,10 @@
+{
+  "name": "home",
+  "description": "Normal internet usage: everything on DHCP.",
+  "ethernet": {
+    "mode": "dhcp"
+  },
+  "wifi": {
+    "mode": "dhcp"
+  }
+}
