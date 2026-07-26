@@ -76,10 +76,18 @@ doesn't have to re-derive it.
 - Windows: `-DryRun` confirmed working on the user's laptop (`kevin-laptop`)
   after fixing the above bug. Real (non-dry-run) apply has **not** been
   tested yet.
-- The laptop has no ethernet adapter present, so the ethernet role couldn't
-  be exercised there (script correctly warned and skipped it — expected
-  behavior, not a bug). Ethernet testing needs a machine with a real NIC —
-  next step is the user's desktop.
+- The laptop has no built-in ethernet adapter, so a USB-ethernet dongle was
+  plugged in (2026-07-25) to exercise the ethernet role in `-DryRun`, no
+  cable connected to anything else. Result: adapter-role detection correctly
+  picked up the dongle as `ethernet`, correctly reported `Disconnected` +
+  an APIPA (169.254.x.x) address with the "DHCP may not be handing out a
+  lease" warning, correctly noted config can still be staged on a down
+  link, and the dry-run static values (`10.10.10.1/24`, no gateway/dns)
+  matched `profiles/ssh-link.kevin-laptop.json` exactly. All expected,
+  no bugs found. Still untested: a real (non-dry-run) apply, and the
+  AFTER/verification block on a link that's actually Up — needs the dongle
+  plugged into the Raspberry Pi once it's set up (not done yet as of this
+  session).
 - Linux side (`apply-profile.sh`, both nmcli and systemd-networkd branches)
   has **not** been tested on real hardware yet — no jq/nmcli available in
   the dev sandbox used to write it. Needs verification on an actual
