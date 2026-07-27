@@ -207,5 +207,71 @@ doesn't have to re-derive it.
   before the `-Device`/`-Scenario` and `<device> <scenario>` CLI-args change
   — these were stale, not just untested.
 
+- **2026-07-27 (real hardware, after the CLI-arg re-test above): first
+  real (non-dry-run) applies on both the Pi and the laptop, plus two new
+  findings, both fixed same day.**
+  - First `raspberrypi ssh-link --dry-run` run after the `find_interfaces()`
+    fix printed `Warning: no NetworkManager connection profile found for
+    eth0, skipping.` This turned out to be correct behavior, not a bug: the
+    ethernet cable was only plugged in on the laptop end at that point, so
+    NetworkManager had never bound `eth0` to a connection (no
+    `GENERAL.CONNECTION`), and there was nothing for `nmcli connection
+    modify` to target. Re-run with the cable plugged in on **both** ends
+    found `Wired connection 1` and produced a correct dry-run plan
+    (`address=10.10.10.2/24`) matching `raspberrypi.json`'s `ssh-link`
+    scenario exactly. No script change needed — confirms `nmcli_conn_for()`'s
+    behavior of only reporting a profile once NM has actually bound one is
+    the right call, not a gap to patch.
+  - Ran for real (`sudo ./linux/apply-profile.sh raspberrypi ssh-link`) on
+    the Pi and the Windows side for real too. `ssh spectrum@10.10.10.2` from
+    the laptop then failed with `Connection refused`. Root cause: **Raspberry
+    Pi OS ships with `sshd` disabled by default** unless enabled during
+    imaging or via `raspi-config` — nothing to do with this script or the
+    network config (a "connection refused" is actually a signal the network
+    layer *did* work: the host answered, just nothing was listening on 22).
+    Fixed by `sudo systemctl enable --now ssh` on the Pi. Documented in
+    `network-profiles/README.md`'s Linux usage section so this doesn't need
+    re-discovering.
+  - After SSH worked, tried switching the Pi back to `home`
+    (`ethernet.mode=dhcp`) while the cable was **still plugged directly into
+    the laptop** (not moved back to the router). The script appeared to hang
+    forever after printing `Configuring ethernet (eth0): mode=dhcp`, with
+    Ctrl-C eventually surfacing nmcli's own `Error: Connection activation
+    failed: IP configuration could not be reserved (no available address,
+    timeout, etc.)`. Root cause: `apply_nmcli()`'s final `nmcli connection up
+    "$conn"` had no `--wait`, so it blocked on NetworkManager's own
+    (long/unbounded-feeling) default policy waiting for a DHCP lease that
+    could never arrive — there was no DHCP server on that direct-to-laptop
+    link. Not a network-config bug, but a real script UX gap: no status
+    output while waiting, no bounded timeout, and a hard `set -e` exit on
+    failure. Fixed in `linux/apply-profile.sh`: added `NMCLI_UP_TIMEOUT=20`,
+    changed the final call to `nmcli connection up "$conn" --wait
+    "$NMCLI_UP_TIMEOUT"` wrapped in an `if ! ...; then` (prints a status line
+    before activating, and on failure a `WARNING` instead of crashing —
+    config is still saved and NM keeps retrying in the background). Also
+    documented in the README as an expected-behavior note: moving back to
+    `dhcp` while still cabled point-to-point to a peer will wait out the 20s
+    bound and warn, not hang. **General lesson reinforced**: when a
+    scenario's ethernet block sets a static point-to-point address with no
+    gateway/DNS (the `ssh-link` shape), switching *back* to `dhcp` on that
+    same physical link requires the cable to actually be moved back to a
+    real network first — the script can bound/report the failure but can't
+    make DHCP succeed with no server present.
+  - **Testing status update:** real (non-dry-run) apply now confirmed
+    working end-to-end on both the Pi (nmcli backend) and the laptop
+    (Windows) for the `ssh-link` scenario, including a live SSH connection
+    over the resulting static-IP link. Switching the Pi back to `home` is
+    expected to work once the cable is physically moved back to the router
+    — not yet re-confirmed after the `--wait`/warning fix (script fix applied
+    same day, not yet re-run on hardware). Red Pitaya / systemd-networkd
+    branch still entirely unexercised on real hardware.
+  - **TODO (pending, blocking further Pi testing):** user needs to physically
+    move the Pi's ethernet cable from the laptop back to the router, then
+    re-run `sudo ./linux/apply-profile.sh raspberrypi home` to confirm (a)
+    DHCP now succeeds normally and (b) the new bounded `--wait 20` +
+    warning-instead-of-hang fix in `apply_nmcli()` behaves as intended.
+    Not yet done as of this session — check back on this before assuming the
+    `home` scenario round-trip works on the Pi.
+
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.

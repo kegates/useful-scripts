@@ -127,6 +127,29 @@ right one:
   matching file per interface in lexical order) and reloads with
   `networkctl`.
 
+**Raspberry Pi OS: SSH is disabled by default.** Applying a `static`
+ethernet profile so you can SSH into the Pi only works if `sshd` is actually
+running. Unless SSH was enabled during imaging (Raspberry Pi Imager's
+"Enable SSH" option) or via `raspi-config`, a fresh install has it off, which
+shows up as `ssh: connect to host ... port 22: Connection refused` — the
+network config is fine at that point (a "connection refused" means the host
+answered, just with nothing listening on 22), the service just isn't running.
+Check and fix with:
+
+```bash
+sudo systemctl status ssh
+sudo systemctl enable --now ssh   # if it's not active
+```
+
+**Switching ethernet back to `dhcp` waits for an actual DHCP server.** The
+script activates the connection with a 20s bound (`nmcli connection up
+--wait 20`) rather than hanging indefinitely, but if there's genuinely no
+DHCP server reachable on that link — e.g. the cable is still plugged
+directly into another device from a prior `ssh-link`-style scenario instead
+of a router/switch — it will still sit for the full 20s before printing a
+`WARNING` and moving on. Move the cable back to the normal network first if
+you hit this.
+
 **Windows** (native PowerShell, run as Administrator):
 
 ```powershell

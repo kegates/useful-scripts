@@ -8,6 +8,7 @@ PROFILES_DIR="${SCRIPT_DIR}/../profiles"
 DRY_RUN=0
 DEVICE_NAME=""
 PROFILE_NAME=""
+NMCLI_UP_TIMEOUT=20
 
 usage() {
   cat <<'EOF'
@@ -282,7 +283,16 @@ apply_nmcli() {
     args+=(ipv4.dns "$dns_csv")
     nmcli connection modify "$conn" "${args[@]}"
   fi
-  nmcli connection up "$conn" >/dev/null
+
+  echo "  Activating \"$conn\" (up to ${NMCLI_UP_TIMEOUT}s)..."
+  if ! nmcli connection up "$conn" --wait "$NMCLI_UP_TIMEOUT" >/dev/null; then
+    echo "  WARNING: \"$conn\" did not fully activate within ${NMCLI_UP_TIMEOUT}s." >&2
+    if [ "$mode" = "dhcp" ]; then
+      echo "  This usually means no DHCP server is reachable on this link yet (e.g. the" >&2
+      echo "  cable is still plugged into a direct point-to-point peer, not a router)." >&2
+    fi
+    echo "  The config was saved and NetworkManager will keep retrying in the background." >&2
+  fi
 }
 
 # --- systemd-networkd backend ----------------------------------------------
