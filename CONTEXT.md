@@ -93,6 +93,33 @@ doesn't have to re-derive it.
   any machine, immediately, regardless of hostname. Found 2026-07-27 on a
   second Windows PC running `-DryRun`. Fixed with `${hostLower}:`. Lesson:
   any `"$var:..."` in a PS string needs `${var}:` instead.
+- `linux/apply-profile.sh`'s `find_interfaces()` silently killed the whole
+  script partway through, with **zero output**, right after backend
+  detection. Root cause: under `set -euo pipefail`, a shell function's exit
+  status is that of its *last executed command* if it never explicitly
+  `return`s. The role-match test in `find_interfaces()` used a bare `&&`
+  chain (`[ ! -d .../wireless ] && [ -d .../device ] && echo "$iface"`) with
+  no fallback. When the *last* interface enumerated from `/sys/class/net/*`
+  didn't match the requested role (e.g. `wlan0` while filtering for
+  `ethernet`), that failing test became the function's return status even
+  though it had already correctly echoed the real match (`eth0`) earlier in
+  the loop. That non-zero status flows through `candidates="$(find_interfaces
+  ...)"` — a bare top-level assignment — and `set -e` kills the script right
+  there, with nothing printed since it was just a failed `[` test, not an
+  error message. Found 2026-07-27 on real Raspberry Pi hardware via `bash -x`
+  (the `-x` trace was needed — normal output gave no clue since it stopped
+  clean, not with an error). Order-dependent, so it wasn't guaranteed to
+  reproduce on every machine/interface-enumeration order. Fixed by adding an
+  explicit `return 0` at the end of `find_interfaces()`. Same bug class also
+  found (proactively, not yet hit in testing) in `apply_networkd()`'s
+  non-dry-run file-writing block — `[ -n "$gateway" ] && echo "Gateway=..."`
+  as a bare mid-block statement — fixed by converting to an explicit `if`.
+  This would have bitten the Red Pitaya real-apply path the first time it
+  ran with `gateway: null`, which both `ssh-link` profiles use. Lesson: any
+  bash function whose result feeds a `set -e` script must not end (or have a
+  bare mid-block statement) on a conditional `&&`/test that's allowed to
+  fail — either wrap it in `if/fi`, append `|| true` where failure should be
+  ignored, or add an explicit `return 0`/`return 1`.
 
 **Testing status (as of last session):**
 
@@ -113,9 +140,16 @@ doesn't have to re-derive it.
   plugged into the Raspberry Pi once it's set up (not done yet as of this
   session).
 - Linux side (`apply-profile.sh`, both nmcli and systemd-networkd branches)
-  has **not** been tested on real hardware yet — no jq/nmcli available in
-  the dev sandbox used to write it. Needs verification on an actual
-  Raspberry Pi and, eventually, a Red Pitaya.
+  has **not** been fully tested end-to-end yet — no jq/nmcli available in
+  the dev sandbox used to write it. First real run was 2026-07-27 on an
+  actual Raspberry Pi (`raspberrypi ssh-link --dry-run`): device/scenario
+  resolution and nmcli backend auto-detection both confirmed correct, but
+  the run died silently right after — see the `find_interfaces()` bug above
+  (now fixed). **Not yet re-run** to confirm the dry-run now completes
+  end-to-end past that point (BEFORE snapshot, dry-run apply preview,
+  "Leaving wifi alone", "Done."). Still needs a real (non-dry-run) apply on
+  the Pi, and everything on a Red Pitaya (systemd-networkd branch is
+  entirely unexercised on real hardware).
 - **2026-07-27 profile-file restructure** (one file per device instead of
   per device+scenario, see design decisions above) touched the
   hostname/scenario lookup logic in both `apply-profile.sh` and

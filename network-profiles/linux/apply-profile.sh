@@ -160,6 +160,7 @@ find_interfaces() {
       [ ! -d "/sys/class/net/$iface/wireless" ] && [ -d "/sys/class/net/$iface/device" ] && echo "$iface"
     fi
   done
+  return 0
 }
 
 find_interface() {
@@ -304,7 +305,9 @@ apply_networkd() {
       echo "DHCP=yes"
     else
       echo "Address=${address}/${prefix}"
-      [ -n "$gateway" ] && echo "Gateway=$gateway"
+      if [ -n "$gateway" ]; then
+        echo "Gateway=$gateway"
+      fi
       if [ -n "$dns_csv" ]; then
         IFS=',' read -ra dns_arr <<< "$dns_csv"
         for d in "${dns_arr[@]}"; do
