@@ -18,12 +18,12 @@ shape across Windows, Raspberry Pi OS, and Red Pitaya OS.
 
 ```powershell
 # Windows (native PowerShell, as Administrator)
-.\network-profiles\windows\Apply-Profile.ps1 -ProfileName ssh-link
+.\network-profiles\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
 ```
 
 ```bash
 # Linux (Raspberry Pi OS, Red Pitaya OS)
-sudo ./network-profiles/linux/apply-profile.sh ssh-link
+sudo ./network-profiles/linux/apply-profile.sh kevin-laptop ssh-link
 ```
 
 See [`network-profiles/README.md`](network-profiles/README.md) for the full

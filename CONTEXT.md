@@ -128,12 +128,21 @@ doesn't have to re-derive it.
   path had not actually been re-run against the new file layout until then.
 - **2026-07-27 (same day, after the above): CLI args replaced hostname
   auto-detection** (`-Device`/`-Scenario` on Windows, positional
-  `<device> <scenario-name>` on Linux — see design decisions above). Neither
-  script has been re-tested since this change: no `pwsh` in this dev
-  sandbox to exercise `Apply-Profile.ps1` (only eyeballed + `bash -n`'d the
-  shell script), and no real Windows/Linux machine run yet with the new
-  argument shape. Re-verify `-DryRun` on the user's laptop before trusting
-  this beyond a syntax read.
+  `<device> <scenario-name>` on Linux — see design decisions above). Re-tested
+  same day: `.\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
+  -DryRun` run on the laptop after a `git pull`, this time with the
+  USB-ethernet dongle plugged into an actually-running Raspberry Pi (Pi's
+  ethernet not yet configured — still on its own defaults). Result: link
+  status `Up`, `dhcp: Enabled`, APIPA address `169.254.102.159/16` correctly
+  detected and warned on (expected: neither side has a DHCP server on that
+  link), dry-run static values (`10.10.10.1/24`, no gateway/dns) matched
+  `ssh-link` in `kevin-laptop.json` exactly, wifi correctly left alone. New
+  CLI-arg shape confirmed working end-to-end on real hardware. Still
+  untested: a real (non-dry-run) apply, and the Pi side of the link is not
+  yet configured with a matching static IP (e.g. `10.10.10.2/24`) — needed
+  before SSH over this link will actually work, not just the laptop side.
+  Linux (`apply-profile.sh`, positional-args shape) still not re-tested with
+  the new arg shape at all.
 - Windows execution policy: on the user's original machine, `Unblock-File`
   alone (recursively over the copied folder) was sufficient to allow the
   script to run — `Set-ExecutionPolicy` was tried but reverted back to
@@ -145,6 +154,24 @@ doesn't have to re-derive it.
   the thing to try first (non-invasive), but don't assume it alone will be
   enough on every machine. Documented in both the top-level README.md and
   `network-profiles/README.md`.
+
+- **2026-07-27 (same day, after the above): added `-Help`/`--help`.**
+  `apply-profile.sh` already had `-h`/`--help`; `Apply-Profile.ps1` did not,
+  so `-Device`/`-Scenario` were changed from `Mandatory = $true` to plain
+  positional params, a `Show-Usage` function was added (mirrors the bash
+  script's `usage()`: device/scenario semantics, options, examples), and a
+  `-Help` switch was added that prints it and exits before the
+  admin-elevation check — so `-Help` works standalone, without either
+  elevation or `-Device`/`-Scenario`. If `-Device`/`-Scenario` are omitted
+  and `-Help` isn't passed, it now prints the same usage plus an error
+  instead of PowerShell's interactive mandatory-parameter prompt. Not yet
+  re-tested on real Windows (no `pwsh` in this dev sandbox) — verify
+  `-Help` and the missing-args error path on the laptop along with the next
+  `-DryRun` run. Also corrected the top-level `README.md`'s Windows/Linux
+  usage examples, which still showed the pre-restructure `-ProfileName
+  ssh-link` / hostname-less `apply-profile.sh ssh-link` invocations from
+  before the `-Device`/`-Scenario` and `<device> <scenario>` CLI-args change
+  — these were stale, not just untested.
 
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.

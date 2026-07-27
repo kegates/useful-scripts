@@ -6,21 +6,56 @@
   .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
   .\Apply-Profile.ps1 -Device kevin-laptop -Scenario home
   .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link -DryRun
+  .\Apply-Profile.ps1 -Help
 #>
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true, Position = 0)]
+  [Parameter(Position = 0)]
   [string]$Device,
 
-  [Parameter(Mandatory = $true, Position = 1)]
+  [Parameter(Position = 1)]
   [string]$Scenario,
 
   [string]$ProfilesDir = (Join-Path $PSScriptRoot "..\profiles"),
 
-  [switch]$DryRun
+  [switch]$DryRun,
+
+  [switch]$Help
 )
 
 $ErrorActionPreference = "Stop"
+
+function Show-Usage {
+  @"
+Usage: Apply-Profile.ps1 -Device <device> -Scenario <scenario-name> [options]
+
+<device> selects which profiles\<device>.json file to use -- it's just a
+label you choose, not required to match this machine's actual hostname.
+Devices that want identical settings (e.g. every Windows laptop) can share
+one file; pass its name explicitly instead of relying on hostname lookup.
+
+Options:
+  -ProfilesDir PATH  Directory containing profile JSON files
+                      (default: ..\profiles relative to this script)
+  -DryRun            Show current state and planned changes, apply nothing
+  -Help              Show this help
+
+Example:
+  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
+  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario home -DryRun
+"@ | Write-Host
+}
+
+if ($Help) {
+  Show-Usage
+  exit 0
+}
+
+if (-not $Device -or -not $Scenario) {
+  Write-Error "Both -Device and -Scenario are required." -ErrorAction Continue
+  Show-Usage
+  exit 1
+}
 
 function Test-IsAdministrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()

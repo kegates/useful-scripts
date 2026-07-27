@@ -138,6 +138,17 @@ right one:
 The ethernet/wifi adapter is picked automatically by physical media type, so
 it doesn't matter what the adapter is named on a given machine.
 
+**Help**: both scripts print full usage (device/scenario semantics, options,
+examples) and exit without requiring any other arguments:
+
+```bash
+./linux/apply-profile.sh --help    # or -h
+```
+
+```powershell
+.\windows\Apply-Profile.ps1 -Help
+```
+
 ## What the scripts print
 
 Both scripts now report state, not just act on it, for every interface the
