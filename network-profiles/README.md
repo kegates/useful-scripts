@@ -63,23 +63,34 @@ If you got these files any way other than `git clone` (copied over a share,
 extracted from a zip, synced via OneDrive, etc.), Windows tags them with a
 "Mark of the Web" and PowerShell will refuse to run them at all:
 `...is not digitally signed. You cannot run this script on the current
-system.` **Check this first** — in testing it was sufficient on its own,
-with no execution-policy change needed:
+system.` **Check this first**:
 
 ```powershell
 Get-ChildItem -Path <path-to-network-profiles> -Recurse | Unblock-File
 ```
 
-If it's still blocked after that (e.g. a machine with a stricter
-`Restricted`/`AllSigned` policy at the `LocalMachine` scope), allow locally
-run scripts for your user account as well (no admin needed):
+On one test machine (synced via OneDrive) this alone was enough — no
+execution-policy change needed. On another (a fresh PC being tested), the
+`CurrentUser` execution policy itself was the blocker and `Unblock-File`
+alone wasn't enough. Check the current policy first:
+
+```powershell
+Get-ExecutionPolicy -List
+```
+
+If `CurrentUser` shows `Restricted` (or `Undefined` and `LocalMachine` is
+`Restricted`), allow locally run scripts for your user account (no admin
+needed):
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
-A `git clone` on a given machine shouldn't need either of these — cloned
-files aren't marked as downloaded the way a copied/extracted file is.
+Both are common fixes depending on the machine — try `Unblock-File` first
+since it's non-invasive, but don't be surprised if a given machine also needs
+the `Set-ExecutionPolicy` change. A `git clone` on a given machine shouldn't
+need either of these — cloned files aren't marked as downloaded the way a
+copied/extracted file is.
 
 ## Usage
 

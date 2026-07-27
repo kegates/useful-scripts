@@ -92,12 +92,17 @@ doesn't have to re-derive it.
   has **not** been tested on real hardware yet — no jq/nmcli available in
   the dev sandbox used to write it. Needs verification on an actual
   Raspberry Pi and, eventually, a Red Pitaya.
-- Windows execution policy: on the user's machine, `Unblock-File` alone
-  (recursively over the copied folder) was sufficient to allow the script
-  to run — `Set-ExecutionPolicy` was tried but reverted back to
-  `Undefined` for CurrentUser afterward and the script still worked. So
-  `Unblock-File` is the thing to check first on any machine where files
-  arrived via copy/zip/OneDrive rather than `git clone`.
+- Windows execution policy: on the user's original machine, `Unblock-File`
+  alone (recursively over the copied folder) was sufficient to allow the
+  script to run — `Set-ExecutionPolicy` was tried but reverted back to
+  `Undefined` for CurrentUser afterward and the script still worked. On a
+  **second, new PC being tested** (2026-07-27), `Unblock-File` alone was not
+  enough — `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy
+  RemoteSigned` was actually required there. So both are legitimate fixes
+  depending on the machine, not just the first one. `Unblock-File` is still
+  the thing to try first (non-invasive), but don't assume it alone will be
+  enough on every machine. Documented in both the top-level README.md and
+  `network-profiles/README.md`.
 
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.
