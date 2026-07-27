@@ -161,7 +161,7 @@ you hit this.
 The ethernet/wifi adapter is picked automatically by physical media type, so
 it doesn't matter what the adapter is named on a given machine.
 
-**Help**: both scripts print full usage (device/scenario semantics, options,
+**Help**: both scripts print full usage (device semantics, options,
 examples) and exit without requiring any other arguments:
 
 ```bash

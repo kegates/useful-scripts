@@ -321,5 +321,37 @@ scripts `linux/apply-profile.sh` and `windows/Apply-Profile.ps1`; renamed
   be verified with a `--dry-run`/`-DryRun` on real hardware before trusting
   a real apply, even though it's a straightforward mechanical change.
 
+- **2026-07-27 (later same day): unified the two scripts' `-Help`/`--help`
+  text.** `net-profile-control-windows.ps1`'s `Show-Usage` had drifted from
+  `net-profile-control-linux.sh`'s `usage()` — it had grown a `Required:`
+  section with separate `-Device`/`-Scenario` explanations that the Linux
+  side never had (Linux only explains `<device>`, never `<scenario-name>`).
+  User asked for them to match, treating Linux's version as the template.
+  Windows' usage text was rewritten to mirror Linux's structure line-for-line
+  (usage line → one explanatory paragraph about `<device>` → `Options:` →
+  `Example:`), adapting only for Windows' flag-based syntax (`-Device`/
+  `-Scenario` instead of positional args) and path-separator convention
+  (`\` vs `/`). Also fixed `net-profile-control/README.md`'s "Help" blurb,
+  which said both scripts print "device/scenario semantics" — inaccurate
+  even before this change, since neither script's usage text has ever
+  explained scenario semantics, only device. Changed to "device semantics".
+  No `pwsh` available in the dev sandbox to execute the PS1 and confirm the
+  here-string renders correctly — it's a straightforward text edit inside an
+  existing `@"..."@` block, but worth a visual check (`-Help`) next time the
+  Windows laptop is touched, same as the other pending Windows-side items
+  below.
+
+**TODOs pending from this session (not yet verified on real hardware):**
+1. Move the Pi's ethernet cable back to the router and re-run
+   `sudo ./net-profile-control-linux.sh raspberrypi internet` — confirms
+   both that DHCP succeeds again and that the `--wait 20` fix behaves as
+   intended (see the dated entry above near "TODO (pending, blocking
+   further Pi testing)").
+2. Confirm `net-profile-control-linux.sh`/`net-profile-control-windows.ps1`
+   still resolve `profiles/` correctly and produce correct `-Help` output
+   after the folder-flattening and usage-message-unification renames in
+   this session — nothing here should have changed behavior, but neither
+   has been re-run on real hardware since.
+
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.

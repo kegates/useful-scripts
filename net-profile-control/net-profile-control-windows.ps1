@@ -29,15 +29,11 @@ function Show-Usage {
   @"
 Usage: net-profile-control-windows.ps1 -Device <device> -Scenario <scenario-name> [options]
 
-Required:
-  -Device <device>    Which profiles\<device>.json file to use -- a label
-                       you choose, not required to match this machine's
-                       actual hostname. Devices that want identical settings
-                       (e.g. every Windows laptop) can share one file; pass
-                       its name explicitly instead of relying on hostname
-                       lookup.
-  -Scenario <name>    Which top-level key in that JSON file to apply
-                       (e.g. "internet", "ssh-link").
+-Device <device> selects which profiles\<device>.json file to use -- it's
+just a label you choose, not required to match this machine's actual
+hostname. Devices that want identical settings (e.g. every Windows laptop)
+can share one file; pass its name explicitly instead of relying on hostname
+lookup.
 
 Options:
   -ProfilesDir PATH   Directory containing profile JSON files
