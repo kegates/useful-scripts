@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Apply a network profile (profiles/<name>.<hostname>.json) to this Windows machine.
+  Apply a network scenario from profiles/<hostname>.json to this Windows machine.
 
 .EXAMPLE
   .\Apply-Profile.ps1 -ProfileName ssh-link
@@ -33,23 +33,32 @@ if (-not $DryRun -and -not (Test-IsAdministrator)) {
 }
 
 $hostLower = $HostName.ToLowerInvariant()
-$profilePath = Join-Path $ProfilesDir "$ProfileName.$hostLower.json"
+$profilePath = Join-Path $ProfilesDir "$hostLower.json"
 
 if (-not (Test-Path $profilePath)) {
   Write-Error "Profile file not found: $profilePath" -ErrorAction Continue
-  $pattern = Join-Path $ProfilesDir "$ProfileName.*.json"
+  $pattern = Join-Path $ProfilesDir "*.json"
   $matches = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
   if ($matches) {
-    Write-Host "Available profiles matching '$ProfileName.*.json':"
+    Write-Host "Available device profiles:"
     $matches | ForEach-Object { Write-Host "  $($_.Name)" }
   } else {
-    Write-Host "No profiles found matching '$ProfileName.*.json' in $ProfilesDir"
+    Write-Host "No device profiles found in $ProfilesDir"
   }
   exit 1
 }
 
-Write-Host "Using profile: $profilePath"
-$profileData = Get-Content -Raw -Path $profilePath | ConvertFrom-Json
+$hostProfile = Get-Content -Raw -Path $profilePath | ConvertFrom-Json
+
+if (-not ($hostProfile.PSObject.Properties.Name -contains $ProfileName)) {
+  Write-Error "Scenario '$ProfileName' not found in $profilePath" -ErrorAction Continue
+  Write-Host "Available scenarios for $hostLower:"
+  $hostProfile.PSObject.Properties.Name | ForEach-Object { Write-Host "  $_" }
+  exit 1
+}
+
+Write-Host "Using profile: $profilePath (scenario: $ProfileName)"
+$profileData = $hostProfile.$ProfileName
 
 # --- Small validation helpers -----------------------------------------------
 

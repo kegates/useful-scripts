@@ -10,52 +10,59 @@ Windows 10/11, Raspberry Pi OS, and Red Pitaya OS.
 ```
 network-profiles/
   profiles/                     # JSON profile files, shared across all OSes
-    home.kevin-laptop.json
-    home.raspberrypi.json
-    ssh-link.kevin-laptop.json
-    ssh-link.raspberrypi.json
-    ssh-link.redpitaya.json
+    kevin-laptop.json
+    raspberrypi.json
+    redpitaya.json
   linux/apply-profile.sh        # Raspberry Pi OS, Red Pitaya OS, any Debian-based Linux
   windows/Apply-Profile.ps1     # native Windows PowerShell
 ```
 
 ## Profile files
 
-Each profile is one JSON file per **scenario + device**, named:
+Each **device** gets one JSON file, named after its hostname:
 
 ```
-profiles/<profile-name>.<hostname>.json
+profiles/<hostname>.json
 ```
 
 `<hostname>` must match the machine's actual hostname (case-insensitive) —
 run `hostname` on Linux or `echo $env:COMPUTERNAME` in PowerShell to check.
 This is what lets the same `apply-profile ssh-link` command pick the right
-IP address on each machine automatically.
+file on each machine automatically.
 
-Shape:
+Within that file, each key is a **scenario** name — the thing you pass on the
+command line (`apply-profile ssh-link`, `apply-profile home`, etc.):
 
 ```json
 {
-  "name": "ssh-link",
-  "description": "optional, just for humans",
-  "ethernet": {
-    "mode": "static",
-    "address": "10.10.10.1",
-    "prefix": 24,
-    "gateway": null,
-    "dns": []
+  "home": {
+    "description": "Normal internet usage: everything on DHCP.",
+    "ethernet": { "mode": "dhcp" },
+    "wifi": { "mode": "dhcp" }
+  },
+  "ssh-link": {
+    "description": "optional, just for humans",
+    "ethernet": {
+      "mode": "static",
+      "address": "10.10.10.1",
+      "prefix": 24,
+      "gateway": null,
+      "dns": []
+    }
   }
 }
 ```
 
-- Omit `ethernet` or `wifi` entirely to leave that interface untouched —
-  this is how "static IP on ethernet, wifi stays on internet" works.
+- Omit `ethernet` or `wifi` entirely within a scenario to leave that
+  interface untouched — this is how "static IP on ethernet, wifi stays on
+  internet" works.
 - `mode` is `"dhcp"` or `"static"`. For `"dhcp"`, no other fields are needed.
 - `gateway` and `dns` are optional (fine to leave `null`/`[]` for a direct
   point-to-point link that doesn't need a gateway).
 
-To add a new device to an existing scenario, copy an existing file to
-`<profile-name>.<new-hostname>.json` and adjust the address.
+To add a new device, copy an existing file to `<new-hostname>.json` and
+adjust the scenarios/addresses. To add a new scenario to an existing device,
+just add another top-level key to that device's file.
 
 ## Windows prerequisite: script execution policy
 

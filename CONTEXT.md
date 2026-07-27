@@ -23,10 +23,14 @@ doesn't have to re-derive it.
 
 **Key design decisions:**
 
-- Profile files are named `profiles/<scenario>.<hostname>.json` — one file
-  per device per scenario (chosen over a hostname-keyed map in a single
-  file, or a shared-profile-plus-local-override split). The script resolves
-  its own hostname at runtime to pick the right file.
+- Profile files are named `profiles/<hostname>.json` — one file **per
+  device**, containing all of that device's scenarios (`home`, `ssh-link`,
+  etc.) as top-level keys. (Originally one file per device *per scenario*,
+  `profiles/<scenario>.<hostname>.json`; changed 2026-07-27 because the user
+  wanted all of a device's scenarios in a single file rather than scattered
+  across separate files.) The script resolves its own hostname at runtime to
+  pick the right file, then looks up the requested scenario name as a key
+  within it.
 - Ethernet/wifi interfaces are auto-detected by role (physical media type on
   Windows, presence of `/sys/class/net/*/wireless` on Linux), not by name —
   adapter names differ per machine and this avoids needing per-device
@@ -83,7 +87,8 @@ doesn't have to re-derive it.
   an APIPA (169.254.x.x) address with the "DHCP may not be handing out a
   lease" warning, correctly noted config can still be staged on a down
   link, and the dry-run static values (`10.10.10.1/24`, no gateway/dns)
-  matched `profiles/ssh-link.kevin-laptop.json` exactly. All expected,
+  matched the `ssh-link` scenario in what was then
+  `profiles/ssh-link.kevin-laptop.json` exactly. All expected,
   no bugs found. Still untested: a real (non-dry-run) apply, and the
   AFTER/verification block on a link that's actually Up — needs the dongle
   plugged into the Raspberry Pi once it's set up (not done yet as of this
@@ -92,6 +97,15 @@ doesn't have to re-derive it.
   has **not** been tested on real hardware yet — no jq/nmcli available in
   the dev sandbox used to write it. Needs verification on an actual
   Raspberry Pi and, eventually, a Red Pitaya.
+- **2026-07-27 profile-file restructure** (one file per device instead of
+  per device+scenario, see design decisions above) touched the
+  hostname/scenario lookup logic in both `apply-profile.sh` and
+  `Apply-Profile.ps1`. JSON shape was validated with `python3 -m json.tool`
+  and the bash script passed `bash -n` (syntax only) — jq still isn't
+  available in this dev sandbox, so the actual jq-based lookup path in
+  `apply-profile.sh` has **not** been exercised, and the Windows `-DryRun`
+  re-check from the last session hasn't been re-run against the new file
+  layout either. Re-verify both before trusting this beyond a syntax read.
 - Windows execution policy: on the user's original machine, `Unblock-File`
   alone (recursively over the copied folder) was sufficient to allow the
   script to run — `Set-ExecutionPolicy` was tried but reverted back to

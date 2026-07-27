@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply a network profile (profiles/<name>.<hostname>.json) to this Linux machine.
+# Apply a network scenario from profiles/<hostname>.json to this Linux machine.
 # Supports both NetworkManager (nmcli) and systemd-networkd backends, auto-detected.
 set -euo pipefail
 
@@ -11,11 +11,11 @@ PROFILE_NAME=""
 
 usage() {
   cat <<'EOF'
-Usage: apply-profile.sh <profile-name> [options]
+Usage: apply-profile.sh <scenario-name> [options]
 
 Options:
   --host NAME          Use NAME instead of this machine's hostname when
-                        looking up profiles/<profile-name>.<NAME>.json
+                        looking up profiles/<NAME>.json
   --profiles-dir PATH  Directory containing profile JSON files
                         (default: ../profiles relative to this script)
   --dry-run            Show current state and planned changes, apply nothing
@@ -43,7 +43,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$PROFILE_NAME" ]; then
-  echo "Error: profile name is required." >&2
+  echo "Error: scenario name is required." >&2
   usage >&2
   exit 1
 fi
@@ -69,12 +69,12 @@ fi
 
 HOST_NAME="${HOST_OVERRIDE:-$(hostname)}"
 HOST_NAME="$(echo "$HOST_NAME" | tr '[:upper:]' '[:lower:]')"
-PROFILE_PATH="${PROFILES_DIR}/${PROFILE_NAME}.${HOST_NAME}.json"
+PROFILE_PATH="${PROFILES_DIR}/${HOST_NAME}.json"
 
 if [ ! -f "$PROFILE_PATH" ]; then
   echo "Error: profile file not found: $PROFILE_PATH" >&2
-  echo "Available profiles matching '${PROFILE_NAME}.*.json':" >&2
-  ls "${PROFILES_DIR}/${PROFILE_NAME}."*.json 2>/dev/null >&2 || echo "  (none found)" >&2
+  echo "Available device profiles:" >&2
+  ls "${PROFILES_DIR}"/*.json 2>/dev/null >&2 || echo "  (none found)" >&2
   exit 1
 fi
 
@@ -83,7 +83,16 @@ if ! jq empty "$PROFILE_PATH" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Using profile: $PROFILE_PATH"
+if ! jq -e --arg s "$PROFILE_NAME" 'has($s)' "$PROFILE_PATH" >/dev/null 2>&1; then
+  echo "Error: scenario '$PROFILE_NAME' not found in $PROFILE_PATH" >&2
+  echo "Available scenarios for $HOST_NAME:" >&2
+  jq -r 'keys[]' "$PROFILE_PATH" | sed 's/^/  /' >&2
+  exit 1
+fi
+
+SCENARIO="$(jq -c --arg s "$PROFILE_NAME" '.[$s]' "$PROFILE_PATH")"
+
+echo "Using profile: $PROFILE_PATH (scenario: $PROFILE_NAME)"
 
 # --- Backend detection -------------------------------------------------
 
@@ -337,7 +346,7 @@ verify_role() {
 # --- Main ------------------------------------------------------------------
 
 for role in ethernet wifi; do
-  block="$(jq -c --arg r "$role" '.[$r] // empty' "$PROFILE_PATH")"
+  block="$(echo "$SCENARIO" | jq -c --arg r "$role" '.[$r] // empty')"
   if [ -z "$block" ]; then
     echo
     echo "Leaving $role alone (not in profile)."
