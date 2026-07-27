@@ -3,10 +3,10 @@
   Apply a network scenario from profiles/<device>.json to this Windows machine.
 
 .EXAMPLE
-  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
-  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario home
-  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link -DryRun
-  .\Apply-Profile.ps1 -Help
+  .\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link
+  .\net-profile-control-windows.ps1 -Device windows-host -Scenario internet
+  .\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link -DryRun
+  .\net-profile-control-windows.ps1 -Help
 #>
 [CmdletBinding()]
 param(
@@ -16,7 +16,7 @@ param(
   [Parameter(Position = 1)]
   [string]$Scenario,
 
-  [string]$ProfilesDir = (Join-Path $PSScriptRoot "..\profiles"),
+  [string]$ProfilesDir = (Join-Path $PSScriptRoot "profiles"),
 
   [switch]$DryRun,
 
@@ -27,7 +27,7 @@ $ErrorActionPreference = "Stop"
 
 function Show-Usage {
   @"
-Usage: Apply-Profile.ps1 -Device <device> -Scenario <scenario-name> [options]
+Usage: net-profile-control-windows.ps1 -Device <device> -Scenario <scenario-name> [options]
 
 Required:
   -Device <device>    Which profiles\<device>.json file to use -- a label
@@ -37,17 +37,17 @@ Required:
                        its name explicitly instead of relying on hostname
                        lookup.
   -Scenario <name>    Which top-level key in that JSON file to apply
-                       (e.g. "home", "ssh-link").
+                       (e.g. "internet", "ssh-link").
 
 Options:
   -ProfilesDir PATH   Directory containing profile JSON files
-                       (default: ..\profiles relative to this script)
+                       (default: profiles subdirectory next to this script)
   -DryRun             Show current state and planned changes, apply nothing
   -Help               Show this help
 
 Example:
-  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
-  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario home -DryRun
+  .\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link
+  .\net-profile-control-windows.ps1 -Device windows-host -Scenario internet -DryRun
 "@ | Write-Host
 }
 

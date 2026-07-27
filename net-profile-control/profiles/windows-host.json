@@ -1,5 +1,5 @@
 {
-  "home": {
+  "internet": {
     "description": "Normal internet usage: everything on DHCP.",
     "ethernet": {
       "mode": "dhcp"
@@ -9,10 +9,10 @@
     }
   },
   "ssh-link": {
-    "description": "Direct ethernet cable to the laptop for SSH. Wifi is left alone so this device keeps normal internet access.",
+    "description": "Direct ethernet cable to the Raspberry Pi for SSH. Wifi is left alone so this device keeps normal internet access.",
     "ethernet": {
       "mode": "static",
-      "address": "10.10.10.2",
+      "address": "10.10.10.1",
       "prefix": 24,
       "gateway": null,
       "dns": []

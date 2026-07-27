@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROFILES_DIR="${SCRIPT_DIR}/../profiles"
+PROFILES_DIR="${SCRIPT_DIR}/profiles"
 DRY_RUN=0
 DEVICE_NAME=""
 PROFILE_NAME=""
@@ -12,7 +12,7 @@ NMCLI_UP_TIMEOUT=20
 
 usage() {
   cat <<'EOF'
-Usage: apply-profile.sh <device> <scenario-name> [options]
+Usage: net-profile-control-linux.sh <device> <scenario-name> [options]
 
 <device> selects which profiles/<device>.json file to use — it's just a
 label you choose, not required to match this machine's actual hostname.
@@ -21,13 +21,13 @@ one file; pass its name explicitly instead of relying on hostname lookup.
 
 Options:
   --profiles-dir PATH  Directory containing profile JSON files
-                        (default: ../profiles relative to this script)
+                        (default: profiles subdirectory next to this script)
   --dry-run            Show current state and planned changes, apply nothing
   -h, --help           Show this help
 
 Example:
-  ./apply-profile.sh kevin-laptop ssh-link
-  ./apply-profile.sh raspberrypi home
+  ./net-profile-control-linux.sh windows-host ssh-link
+  ./net-profile-control-linux.sh raspberrypi internet
 EOF
 }
 
@@ -58,7 +58,7 @@ fi
 # WSL can't manage the physical NICs of the Windows host it runs on.
 if grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]; then
   echo "Error: this looks like WSL. WSL cannot manage the Windows host's network" >&2
-  echo "adapters. Run windows/Apply-Profile.ps1 from a native Windows PowerShell" >&2
+  echo "adapters. Run net-profile-control-windows.ps1 from a native Windows PowerShell" >&2
   echo "(as Administrator) instead." >&2
   exit 1
 fi

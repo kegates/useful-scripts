@@ -12,14 +12,16 @@ via native PowerShell when a script needs real access to the Windows host
 
 ## Scripts so far
 
-### `network-profiles/` (first script, in progress)
+### `net-profile-control/` (first script, in progress)
 
 Switches a machine's ethernet and/or wifi between DHCP and a static IP by
 applying a named "profile" (JSON file), leaving whichever interface isn't
 mentioned in the profile untouched. Full design rationale and usage is in
-`network-profiles/README.md` — this file only tracks the *why* behind
+`net-profile-control/README.md` — this file only tracks the *why* behind
 decisions and what's actually been verified to work, so a future session
-doesn't have to re-derive it.
+doesn't have to re-derive it. (Originally named `network-profiles/` with
+scripts `linux/apply-profile.sh` and `windows/Apply-Profile.ps1`; renamed
+2026-07-27 — see the dated entry near the end of this section for why.)
 
 **Key design decisions:**
 
@@ -63,7 +65,7 @@ doesn't have to re-derive it.
   ambiguous multi-adapter matches, APIPA addresses). This was requested
   explicitly after manually walking through what to check in chat — the
   user wants the scripts to self-verify, not just act.
-- `linux/apply-profile.sh` refuses to run under WSL (detects via
+- `net-profile-control-linux.sh` refuses to run under WSL (detects via
   `/proc/version` / `$WSL_DISTRO_NAME`) and points to the PowerShell script
   instead. WSL has its own virtual network stack and cannot touch a Windows
   host's physical NICs — there is no way to make this work, not just an
@@ -267,11 +269,57 @@ doesn't have to re-derive it.
     branch still entirely unexercised on real hardware.
   - **TODO (pending, blocking further Pi testing):** user needs to physically
     move the Pi's ethernet cable from the laptop back to the router, then
-    re-run `sudo ./linux/apply-profile.sh raspberrypi home` to confirm (a)
-    DHCP now succeeds normally and (b) the new bounded `--wait 20` +
-    warning-instead-of-hang fix in `apply_nmcli()` behaves as intended.
+    re-run `sudo ./net-profile-control-linux.sh raspberrypi internet` (path
+    and scenario name current as of the renames below — was
+    `linux/apply-profile.sh raspberrypi home` when this TODO was written) to
+    confirm (a) DHCP now succeeds normally and (b) the new bounded `--wait
+    20` + warning-instead-of-hang fix in `apply_nmcli()` behaves as intended.
     Not yet done as of this session — check back on this before assuming the
-    `home` scenario round-trip works on the Pi.
+    `internet` scenario round-trip works on the Pi.
+
+- **2026-07-27 (later same day): renamed `home` → `internet` and
+  `kevin-laptop` → `windows-host`.** User felt `home` didn't fit and
+  `kevin-laptop` was needlessly tied to one specific machine when the
+  intent (per the `<device>`-is-just-a-label design decision above) is a
+  device *class*. `profiles/kevin-laptop.json` renamed to
+  `profiles/windows-host.json` (`git mv`), its `home` key and
+  `raspberrypi.json`'s `home` key both renamed to `internet`. All examples
+  in both READMEs and both scripts' usage/help text updated to match.
+  Historical entries earlier in this log still say `home`/`kevin-laptop`
+  where they're describing what was literally run/observed at the time —
+  left as-is rather than rewritten, same convention as other renames in
+  this file. Not yet re-tested on hardware under the new names (should be a
+  no-op functionally — pure rename, no logic touched — but worth confirming
+  `apply-profile.sh windows-host internet` / `-Device windows-host -Scenario
+  internet` resolve correctly next time either machine is touched).
+
+- **2026-07-27 (later same day): renamed the whole project
+  `network-profiles/` → `net-profile-control/`, and flattened the
+  `linux/`/`windows/` subfolders.** User felt `network-profiles` described
+  the JSON files more than what the scripts *do*, and that a folder holding
+  exactly one file each (`linux/apply-profile.sh`, `windows/Apply-Profile.ps1`)
+  wasn't earning its nesting. New layout — everything moved with `git mv`
+  (history preserved):
+  ```
+  net-profile-control/
+    profiles/*.json                    # unchanged
+    net-profile-control-linux.sh       # was linux/apply-profile.sh
+    net-profile-control-windows.ps1    # was windows/Apply-Profile.ps1
+  ```
+  Both scripts previously resolved `profiles/` as `../profiles` relative to
+  their own location (they lived one level down, in `linux/`/`windows/`);
+  now that they're siblings of `profiles/`, both were changed to resolve it
+  as `profiles` directly (`PROFILES_DIR="${SCRIPT_DIR}/profiles"` in the
+  bash script, `Join-Path $PSScriptRoot "profiles"` as the PS1 default for
+  `-ProfilesDir`) — **this is the one part of this rename that's more than
+  cosmetic**, since a stale `../profiles` after the move would have pointed
+  one directory too high and broken profile lookup entirely. All usage/help
+  text, both READMEs, and the top-level `README.md` updated to the new
+  script names and the flattened path (no more `linux/`/`windows/` prefix in
+  invocation examples). Not yet re-tested on either the Pi or the Windows
+  laptop under the new paths — the profiles-dir change in particular should
+  be verified with a `--dry-run`/`-DryRun` on real hardware before trusting
+  a real apply, even though it's a straightforward mechanical change.
 
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.

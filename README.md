@@ -10,7 +10,7 @@ usage. This file is just an index.
 
 ## Sub-projects
 
-### [`network-profiles/`](network-profiles/README.md)
+### [`net-profile-control/`](net-profile-control/README.md)
 
 Switch a machine's ethernet and/or wifi between DHCP and a static IP by
 applying a named "profile" (JSON file). Same profile files, same command
@@ -18,16 +18,16 @@ shape across Windows, Raspberry Pi OS, and Red Pitaya OS.
 
 ```powershell
 # Windows (native PowerShell, as Administrator)
-.\network-profiles\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
+.\net-profile-control\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link
 ```
 
 ```bash
 # Linux (Raspberry Pi OS, Red Pitaya OS)
-sudo ./network-profiles/linux/apply-profile.sh kevin-laptop ssh-link
+sudo ./net-profile-control/net-profile-control-linux.sh raspberrypi ssh-link
 ```
 
-See [`network-profiles/README.md`](network-profiles/README.md) for the full
-profile format, prerequisites, and what the scripts print.
+See [`net-profile-control/README.md`](net-profile-control/README.md) for the
+full profile format, prerequisites, and what the scripts print.
 
 ## Windows: getting scripts to run at all
 

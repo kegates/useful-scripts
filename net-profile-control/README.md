@@ -1,4 +1,4 @@
-# network-profiles
+# net-profile-control
 
 Switch a machine's ethernet and/or wifi between DHCP and a static IP by applying
 a named "profile", without touching whichever interface isn't mentioned in the
@@ -8,13 +8,13 @@ Windows 10/11, Raspberry Pi OS, and Red Pitaya OS.
 ## Layout
 
 ```
-network-profiles/
-  profiles/                     # JSON profile files, shared across all OSes
-    kevin-laptop.json
+net-profile-control/
+  profiles/                        # JSON profile files, shared across all OSes
+    windows-host.json
     raspberrypi.json
     redpitaya.json
-  linux/apply-profile.sh        # Raspberry Pi OS, Red Pitaya OS, any Debian-based Linux
-  windows/Apply-Profile.ps1     # native Windows PowerShell
+  net-profile-control-linux.sh     # Raspberry Pi OS, Red Pitaya OS, any Debian-based Linux
+  net-profile-control-windows.ps1  # native Windows PowerShell
 ```
 
 ## Profile files
@@ -27,7 +27,7 @@ profiles/<device>.json
 ```
 
 `<device>` doesn't have to match the machine's actual hostname. It's just a
-name you make up for a set of settings — e.g. `kevin-laptop` for one specific
+name you make up for a set of settings — e.g. `windows-host` for one specific
 machine, or something like `raspberrypi`/`redpitaya` shared by every device
 of that class. If several machines want identical settings (every Raspberry
 Pi, say), they can all pass the same `<device>` name rather than needing one
@@ -35,12 +35,12 @@ file each. You supply `<device>` explicitly every time you run the script —
 there's no hostname lookup to trip over.
 
 Within that file, each key is a **scenario** name — the thing you also pass on
-the command line (`apply-profile <device> ssh-link`, `apply-profile <device>
-home`, etc.):
+the command line (`net-profile-control-linux.sh <device> ssh-link`,
+`net-profile-control-linux.sh <device> internet`, etc.):
 
 ```json
 {
-  "home": {
+  "internet": {
     "description": "Normal internet usage: everything on DHCP.",
     "ethernet": { "mode": "dhcp" },
     "wifi": { "mode": "dhcp" }
@@ -78,7 +78,7 @@ extracted from a zip, synced via OneDrive, etc.), Windows tags them with a
 system.` **Check this first**:
 
 ```powershell
-Get-ChildItem -Path <path-to-network-profiles> -Recurse | Unblock-File
+Get-ChildItem -Path <path-to-net-profile-control> -Recurse | Unblock-File
 ```
 
 On one test machine (synced via OneDrive) this alone was enough — no
@@ -109,9 +109,9 @@ copied/extracted file is.
 **Linux** (Raspberry Pi OS, Red Pitaya OS):
 
 ```bash
-sudo ./linux/apply-profile.sh raspberrypi ssh-link
-sudo ./linux/apply-profile.sh raspberrypi home
-./linux/apply-profile.sh raspberrypi ssh-link --dry-run     # preview, no sudo needed
+sudo ./net-profile-control-linux.sh raspberrypi ssh-link
+sudo ./net-profile-control-linux.sh raspberrypi internet
+./net-profile-control-linux.sh raspberrypi ssh-link --dry-run     # preview, no sudo needed
 ```
 
 Requires `jq` (`sudo apt install jq`). The script auto-detects whether the
@@ -153,9 +153,9 @@ you hit this.
 **Windows** (native PowerShell, run as Administrator):
 
 ```powershell
-.\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
-.\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario home
-.\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link -DryRun
+.\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link
+.\net-profile-control-windows.ps1 -Device windows-host -Scenario internet
+.\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link -DryRun
 ```
 
 The ethernet/wifi adapter is picked automatically by physical media type, so
@@ -165,11 +165,11 @@ it doesn't matter what the adapter is named on a given machine.
 examples) and exit without requiring any other arguments:
 
 ```bash
-./linux/apply-profile.sh --help    # or -h
+./net-profile-control-linux.sh --help    # or -h
 ```
 
 ```powershell
-.\windows\Apply-Profile.ps1 -Help
+.\net-profile-control-windows.ps1 -Help
 ```
 
 ## What the scripts print
@@ -199,9 +199,10 @@ profile touches:
 
 WSL has its own virtual network stack — it cannot configure the physical
 NICs of the Windows host it's running on. If you're on a Windows machine,
-always run `windows\Apply-Profile.ps1` from a native Windows PowerShell
+always run `net-profile-control-windows.ps1` from a native Windows PowerShell
 (as Administrator), even if you normally live in WSL for everything else.
-`linux/apply-profile.sh` will refuse to run under WSL with a pointer to this.
+`net-profile-control-linux.sh` will refuse to run under WSL with a pointer to
+this.
 
 ## Applying a profile over the connection you're using
 
