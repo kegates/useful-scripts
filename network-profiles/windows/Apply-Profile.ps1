@@ -29,16 +29,21 @@ function Show-Usage {
   @"
 Usage: Apply-Profile.ps1 -Device <device> -Scenario <scenario-name> [options]
 
-<device> selects which profiles\<device>.json file to use -- it's just a
-label you choose, not required to match this machine's actual hostname.
-Devices that want identical settings (e.g. every Windows laptop) can share
-one file; pass its name explicitly instead of relying on hostname lookup.
+Required:
+  -Device <device>    Which profiles\<device>.json file to use -- a label
+                       you choose, not required to match this machine's
+                       actual hostname. Devices that want identical settings
+                       (e.g. every Windows laptop) can share one file; pass
+                       its name explicitly instead of relying on hostname
+                       lookup.
+  -Scenario <name>    Which top-level key in that JSON file to apply
+                       (e.g. "home", "ssh-link").
 
 Options:
-  -ProfilesDir PATH  Directory containing profile JSON files
-                      (default: ..\profiles relative to this script)
-  -DryRun            Show current state and planned changes, apply nothing
-  -Help              Show this help
+  -ProfilesDir PATH   Directory containing profile JSON files
+                       (default: ..\profiles relative to this script)
+  -DryRun             Show current state and planned changes, apply nothing
+  -Help               Show this help
 
 Example:
   .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
