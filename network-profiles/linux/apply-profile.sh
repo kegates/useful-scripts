@@ -1,49 +1,55 @@
 #!/usr/bin/env bash
-# Apply a network scenario from profiles/<hostname>.json to this Linux machine.
+# Apply a network scenario from profiles/<device>.json to this Linux machine.
 # Supports both NetworkManager (nmcli) and systemd-networkd backends, auto-detected.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROFILES_DIR="${SCRIPT_DIR}/../profiles"
-HOST_OVERRIDE=""
 DRY_RUN=0
+DEVICE_NAME=""
 PROFILE_NAME=""
 
 usage() {
   cat <<'EOF'
-Usage: apply-profile.sh <scenario-name> [options]
+Usage: apply-profile.sh <device> <scenario-name> [options]
+
+<device> selects which profiles/<device>.json file to use — it's just a
+label you choose, not required to match this machine's actual hostname.
+Devices that want identical settings (e.g. every Raspberry Pi) can share
+one file; pass its name explicitly instead of relying on hostname lookup.
 
 Options:
-  --host NAME          Use NAME instead of this machine's hostname when
-                        looking up profiles/<NAME>.json
   --profiles-dir PATH  Directory containing profile JSON files
                         (default: ../profiles relative to this script)
   --dry-run            Show current state and planned changes, apply nothing
   -h, --help           Show this help
 
 Example:
-  ./apply-profile.sh ssh-link
-  ./apply-profile.sh home
+  ./apply-profile.sh kevin-laptop ssh-link
+  ./apply-profile.sh raspberrypi home
 EOF
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --host) HOST_OVERRIDE="$2"; shift 2 ;;
     --profiles-dir) PROFILES_DIR="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
     *)
-      if [ -n "$PROFILE_NAME" ]; then
+      if [ -z "$DEVICE_NAME" ]; then
+        DEVICE_NAME="$1"; shift
+      elif [ -z "$PROFILE_NAME" ]; then
+        PROFILE_NAME="$1"; shift
+      else
         echo "Unexpected extra argument: $1" >&2; exit 1
       fi
-      PROFILE_NAME="$1"; shift ;;
+      ;;
   esac
 done
 
-if [ -z "$PROFILE_NAME" ]; then
-  echo "Error: scenario name is required." >&2
+if [ -z "$DEVICE_NAME" ] || [ -z "$PROFILE_NAME" ]; then
+  echo "Error: both <device> and <scenario-name> are required." >&2
   usage >&2
   exit 1
 fi
@@ -67,9 +73,8 @@ if [ "$DRY_RUN" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-HOST_NAME="${HOST_OVERRIDE:-$(hostname)}"
-HOST_NAME="$(echo "$HOST_NAME" | tr '[:upper:]' '[:lower:]')"
-PROFILE_PATH="${PROFILES_DIR}/${HOST_NAME}.json"
+DEVICE_NAME="$(echo "$DEVICE_NAME" | tr '[:upper:]' '[:lower:]')"
+PROFILE_PATH="${PROFILES_DIR}/${DEVICE_NAME}.json"
 
 if [ ! -f "$PROFILE_PATH" ]; then
   echo "Error: profile file not found: $PROFILE_PATH" >&2
@@ -85,7 +90,7 @@ fi
 
 if ! jq -e --arg s "$PROFILE_NAME" 'has($s)' "$PROFILE_PATH" >/dev/null 2>&1; then
   echo "Error: scenario '$PROFILE_NAME' not found in $PROFILE_PATH" >&2
-  echo "Available scenarios for $HOST_NAME:" >&2
+  echo "Available scenarios for $DEVICE_NAME:" >&2
   jq -r 'keys[]' "$PROFILE_PATH" | sed 's/^/  /' >&2
   exit 1
 fi

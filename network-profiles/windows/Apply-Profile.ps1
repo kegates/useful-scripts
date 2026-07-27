@@ -1,18 +1,19 @@
 <#
 .SYNOPSIS
-  Apply a network scenario from profiles/<hostname>.json to this Windows machine.
+  Apply a network scenario from profiles/<device>.json to this Windows machine.
 
 .EXAMPLE
-  .\Apply-Profile.ps1 -ProfileName ssh-link
-  .\Apply-Profile.ps1 -ProfileName home
-  .\Apply-Profile.ps1 -ProfileName ssh-link -DryRun
+  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
+  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario home
+  .\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link -DryRun
 #>
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true, Position = 0)]
-  [string]$ProfileName,
+  [string]$Device,
 
-  [string]$HostName = $env:COMPUTERNAME,
+  [Parameter(Mandatory = $true, Position = 1)]
+  [string]$Scenario,
 
   [string]$ProfilesDir = (Join-Path $PSScriptRoot "..\profiles"),
 
@@ -32,8 +33,8 @@ if (-not $DryRun -and -not (Test-IsAdministrator)) {
   exit 1
 }
 
-$hostLower = $HostName.ToLowerInvariant()
-$profilePath = Join-Path $ProfilesDir "$hostLower.json"
+$deviceLower = $Device.ToLowerInvariant()
+$profilePath = Join-Path $ProfilesDir "$deviceLower.json"
 
 if (-not (Test-Path $profilePath)) {
   Write-Error "Profile file not found: $profilePath" -ErrorAction Continue
@@ -50,15 +51,15 @@ if (-not (Test-Path $profilePath)) {
 
 $hostProfile = Get-Content -Raw -Path $profilePath | ConvertFrom-Json
 
-if (-not ($hostProfile.PSObject.Properties.Name -contains $ProfileName)) {
-  Write-Error "Scenario '$ProfileName' not found in $profilePath" -ErrorAction Continue
-  Write-Host "Available scenarios for $hostLower:"
+if (-not ($hostProfile.PSObject.Properties.Name -contains $Scenario)) {
+  Write-Error "Scenario '$Scenario' not found in $profilePath" -ErrorAction Continue
+  Write-Host "Available scenarios for ${Device}:"
   $hostProfile.PSObject.Properties.Name | ForEach-Object { Write-Host "  $_" }
   exit 1
 }
 
-Write-Host "Using profile: $profilePath (scenario: $ProfileName)"
-$profileData = $hostProfile.$ProfileName
+Write-Host "Using profile: $profilePath (scenario: $Scenario)"
+$profileData = $hostProfile.$Scenario
 
 # --- Small validation helpers -----------------------------------------------
 

@@ -23,14 +23,25 @@ doesn't have to re-derive it.
 
 **Key design decisions:**
 
-- Profile files are named `profiles/<hostname>.json` — one file **per
-  device**, containing all of that device's scenarios (`home`, `ssh-link`,
-  etc.) as top-level keys. (Originally one file per device *per scenario*,
-  `profiles/<scenario>.<hostname>.json`; changed 2026-07-27 because the user
-  wanted all of a device's scenarios in a single file rather than scattered
-  across separate files.) The script resolves its own hostname at runtime to
-  pick the right file, then looks up the requested scenario name as a key
-  within it.
+- Profile files are named `profiles/<device>.json` — one file **per
+  device profile**, containing all of that profile's scenarios (`home`,
+  `ssh-link`, etc.) as top-level keys. (Originally one file per device *per
+  scenario*, `profiles/<scenario>.<hostname>.json`; changed 2026-07-27
+  because the user wanted all of a device's scenarios in a single file
+  rather than scattered across separate files.)
+- **2026-07-27 (later same day): dropped hostname auto-detection
+  entirely.** The scripts used to resolve `$env:COMPUTERNAME`/`hostname` at
+  runtime to pick `profiles/<hostname>.json` automatically. Replaced with
+  two explicit CLI args on both scripts — Windows: `-Device`/`-Scenario`;
+  Linux: positional `<device> <scenario-name>`. Reason: the user pointed out
+  that multiple machines of the same class (every Windows laptop, every Pi)
+  will usually want identical settings, so a naming scheme tied to each
+  machine's literal hostname doesn't scale — you'd need a new file per
+  machine even when the content would be identical. `<device>` is now just
+  an arbitrary label the user picks and passes explicitly (e.g.
+  `kevin-laptop`, or a shared `raspberrypi`), decoupled from the OS
+  hostname. This also incidentally sidesteps ever needing to look up a new
+  machine's hostname to get the script running.
 - Ethernet/wifi interfaces are auto-detected by role (physical media type on
   Windows, presence of `/sys/class/net/*/wireless` on Linux), not by name —
   adapter names differ per machine and this avoids needing per-device
@@ -74,6 +85,14 @@ doesn't have to re-derive it.
   (`laptop`/`raspberrypi`/`redpitaya`). Renamed the laptop ones to the
   user's real hostname (`kevin-laptop`) once confirmed, so a fresh copy of
   the repo works without a manual rename.
+- `Apply-Profile.ps1`'s "scenario not found" branch (added in the
+  2026-07-27 restructure) wrote `"Available scenarios for $hostLower:"` in
+  a double-quoted string. PowerShell parses `$var:` as an attempt at a
+  drive/scope-qualified variable name (like `$env:PATH`), not "variable
+  then literal colon", so this is a **parse-time** error — it would fail on
+  any machine, immediately, regardless of hostname. Found 2026-07-27 on a
+  second Windows PC running `-DryRun`. Fixed with `${hostLower}:`. Lesson:
+  any `"$var:..."` in a PS string needs `${var}:` instead.
 
 **Testing status (as of last session):**
 
@@ -103,9 +122,18 @@ doesn't have to re-derive it.
   `Apply-Profile.ps1`. JSON shape was validated with `python3 -m json.tool`
   and the bash script passed `bash -n` (syntax only) — jq still isn't
   available in this dev sandbox, so the actual jq-based lookup path in
-  `apply-profile.sh` has **not** been exercised, and the Windows `-DryRun`
-  re-check from the last session hasn't been re-run against the new file
-  layout either. Re-verify both before trusting this beyond a syntax read.
+  `apply-profile.sh` has **not** been exercised. This restructure introduced
+  the `"Available scenarios for $hostLower:"` parse-time bug described
+  above, found the same day on a second Windows PC — the Windows `-DryRun`
+  path had not actually been re-run against the new file layout until then.
+- **2026-07-27 (same day, after the above): CLI args replaced hostname
+  auto-detection** (`-Device`/`-Scenario` on Windows, positional
+  `<device> <scenario-name>` on Linux — see design decisions above). Neither
+  script has been re-tested since this change: no `pwsh` in this dev
+  sandbox to exercise `Apply-Profile.ps1` (only eyeballed + `bash -n`'d the
+  shell script), and no real Windows/Linux machine run yet with the new
+  argument shape. Re-verify `-DryRun` on the user's laptop before trusting
+  this beyond a syntax read.
 - Windows execution policy: on the user's original machine, `Unblock-File`
   alone (recursively over the copied folder) was sufficient to allow the
   script to run — `Set-ExecutionPolicy` was tried but reverted back to

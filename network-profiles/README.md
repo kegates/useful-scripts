@@ -19,19 +19,24 @@ network-profiles/
 
 ## Profile files
 
-Each **device** gets one JSON file, named after its hostname:
+Each JSON file is a **device profile** — a label you choose and pass
+explicitly on the command line, not something the script auto-detects:
 
 ```
-profiles/<hostname>.json
+profiles/<device>.json
 ```
 
-`<hostname>` must match the machine's actual hostname (case-insensitive) —
-run `hostname` on Linux or `echo $env:COMPUTERNAME` in PowerShell to check.
-This is what lets the same `apply-profile ssh-link` command pick the right
-file on each machine automatically.
+`<device>` doesn't have to match the machine's actual hostname. It's just a
+name you make up for a set of settings — e.g. `kevin-laptop` for one specific
+machine, or something like `raspberrypi`/`redpitaya` shared by every device
+of that class. If several machines want identical settings (every Raspberry
+Pi, say), they can all pass the same `<device>` name rather than needing one
+file each. You supply `<device>` explicitly every time you run the script —
+there's no hostname lookup to trip over.
 
-Within that file, each key is a **scenario** name — the thing you pass on the
-command line (`apply-profile ssh-link`, `apply-profile home`, etc.):
+Within that file, each key is a **scenario** name — the thing you also pass on
+the command line (`apply-profile <device> ssh-link`, `apply-profile <device>
+home`, etc.):
 
 ```json
 {
@@ -60,9 +65,9 @@ command line (`apply-profile ssh-link`, `apply-profile home`, etc.):
 - `gateway` and `dns` are optional (fine to leave `null`/`[]` for a direct
   point-to-point link that doesn't need a gateway).
 
-To add a new device, copy an existing file to `<new-hostname>.json` and
-adjust the scenarios/addresses. To add a new scenario to an existing device,
-just add another top-level key to that device's file.
+To add a new device profile, copy an existing file to `<new-device>.json` and
+adjust the scenarios/addresses. To add a new scenario to an existing device
+profile, just add another top-level key to that file.
 
 ## Windows prerequisite: script execution policy
 
@@ -104,9 +109,9 @@ copied/extracted file is.
 **Linux** (Raspberry Pi OS, Red Pitaya OS):
 
 ```bash
-sudo ./linux/apply-profile.sh ssh-link
-sudo ./linux/apply-profile.sh home
-./linux/apply-profile.sh ssh-link --dry-run     # preview, no sudo needed
+sudo ./linux/apply-profile.sh raspberrypi ssh-link
+sudo ./linux/apply-profile.sh raspberrypi home
+./linux/apply-profile.sh raspberrypi ssh-link --dry-run     # preview, no sudo needed
 ```
 
 Requires `jq` (`sudo apt install jq`). The script auto-detects whether the
@@ -125,9 +130,9 @@ right one:
 **Windows** (native PowerShell, run as Administrator):
 
 ```powershell
-.\windows\Apply-Profile.ps1 -ProfileName ssh-link
-.\windows\Apply-Profile.ps1 -ProfileName home
-.\windows\Apply-Profile.ps1 -ProfileName ssh-link -DryRun
+.\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link
+.\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario home
+.\windows\Apply-Profile.ps1 -Device kevin-laptop -Scenario ssh-link -DryRun
 ```
 
 The ethernet/wifi adapter is picked automatically by physical media type, so
