@@ -17,5 +17,18 @@
       "gateway": null,
       "dns": []
     }
+  },
+  "peer-host": {
+    "description": "Broadcast this Pi's own wifi network (hostapd) so another device can join directly over the air, e.g. for SSH when no shared router is available. Ethernet is left alone. Run 'internet' again to stop hosting and resume normal wifi. 'interface' pins the USB adapter (longer range) instead of the built-in one - remove it, or change it to match actual hardware, if there's only one wifi adapter.",
+    "wifi": {
+      "mode": "ap",
+      "interface": "wlan1",
+      "ssid": "pi-peer-link",
+      "passphrase": "changeme123",
+      "address": "192.168.50.1",
+      "prefix": 24,
+      "channel": 6,
+      "band": "2.4ghz"
+    }
   }
 }

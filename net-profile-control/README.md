@@ -61,9 +61,26 @@ the command line (`net-profile-control-linux.sh <device> ssh-link`,
 - Omit `ethernet` or `wifi` entirely within a scenario to leave that
   interface untouched — this is how "static IP on ethernet, wifi stays on
   internet" works.
-- `mode` is `"dhcp"` or `"static"`. For `"dhcp"`, no other fields are needed.
+- `mode` is `"dhcp"`, `"static"`, or (wifi only) `"ap"`. For `"dhcp"`, no
+  other fields are needed.
 - `gateway` and `dns` are optional (fine to leave `null`/`[]` for a direct
   point-to-point link that doesn't need a gateway).
+- `interface` (optional, either role) pins a specific physical adapter by
+  name (e.g. `"wlan1"`) instead of auto-detecting one by role. Useful when a
+  machine has more than one adapter of the same kind — e.g. a Raspberry Pi's
+  built-in wifi plus a longer-range USB adapter — and you need to choose
+  which one a scenario uses. Auto-detect (the default when `interface` is
+  omitted) picks the first match and warns if there's more than one.
+- `"static"` mode can also join a specific wifi network first, instead of
+  assuming the interface is already associated: add `ssid` and `passphrase`
+  (both required together) and the script joins that network before
+  applying the static address. Omit both to keep today's behavior (assumes
+  an existing connection/association, just changes its addressing).
+- `"ap"` mode (wifi only) makes this device **broadcast its own wifi
+  network** via `hostapd` instead of acting as a client — see "Wifi:
+  broadcasting your own network (peer-to-peer over the air)" below for the
+  full field list and how it pairs with a `"static"`+`ssid` scenario on the
+  joining device.
 
 To add a new device profile, copy an existing file to `<new-device>.json` and
 adjust the scenarios/addresses. To add a new scenario to an existing device
@@ -111,12 +128,15 @@ copied/extracted file is.
 ```bash
 sudo ./net-profile-control-linux.sh raspberrypi ssh-link
 sudo ./net-profile-control-linux.sh raspberrypi internet
+sudo ./net-profile-control-linux.sh raspberrypi peer-host   # broadcast own wifi network
 ./net-profile-control-linux.sh raspberrypi ssh-link --dry-run     # preview, no sudo needed
 ```
 
-Requires `jq` (`sudo apt install jq`). The script auto-detects whether the
-machine runs NetworkManager (`nmcli`) or `systemd-networkd` and uses the
-right one:
+Requires `jq` (`sudo apt install jq`). `wifi.mode: "ap"` scenarios also
+require `hostapd` (`sudo apt install hostapd`) — `iw` is optional and only
+used to double-check the interface actually came up in AP mode. The script
+auto-detects whether the machine runs NetworkManager (`nmcli`) or
+`systemd-networkd` and uses the right one:
 
 - **Raspberry Pi OS Bookworm and later** uses NetworkManager by default →
   the script edits the connection profile via `nmcli`.
@@ -155,11 +175,14 @@ you hit this.
 ```powershell
 .\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link
 .\net-profile-control-windows.ps1 -Device windows-host -Scenario internet
+.\net-profile-control-windows.ps1 -Device windows-host -Scenario peer-join   # join a peer's broadcast wifi network
 .\net-profile-control-windows.ps1 -Device windows-host -Scenario ssh-link -DryRun
 ```
 
-The ethernet/wifi adapter is picked automatically by physical media type, so
-it doesn't matter what the adapter is named on a given machine.
+The ethernet/wifi adapter is picked automatically by physical media type
+(override with `interface` in the profile if a machine has more than one
+adapter of the same kind), so it doesn't matter what the adapter is named on
+a given machine.
 
 **Help**: both scripts print full usage (device semantics, options,
 examples) and exit without requiring any other arguments:
@@ -219,15 +242,66 @@ warning and skips that role rather than failing — this is expected, not a
 bug. `Get-NetAdapter -Physical` / the Linux interface scan only see hardware
 that's actually present. Test the ethernet side on a machine that has a NIC.
 
-## Known limitation: wifi as the direct link
+## Wifi: broadcasting your own network (peer-to-peer over the air)
 
-The "static ethernet, DHCP wifi" direction works like a crossover cable:
-both ends just need matching static IPs, no router involved. The reverse
-(wired connection to the internet, direct wifi link between two devices for
-SSH) is **not** fully solved by this script yet — two wifi *clients* can't
-just static-IP their way into talking to each other; one side needs to host
-an access point (or the link needs ad-hoc/IBSS mode, which isn't reliably
-supported across Windows/Linux/Red Pitaya). This script will correctly set
-a static IP on the wifi interface, but establishing the actual radio link
-(hosting/joining an AP) is a separate piece — ask if you want that built out
-as a follow-on (e.g. a `wifi-hotspot` profile type).
+Two wifi *clients* can't just static-IP their way into talking to each
+other the way two ethernet ends can (that's still the "static ethernet,
+DHCP wifi" crossover-cable trick, unchanged) — one side has to host an
+access point. This is `wifi.mode: "ap"`, backed by `hostapd` (chosen over
+ad-hoc/IBSS mode, which isn't reliably supported across
+Windows/Linux/Red Pitaya, or wifi-direct).
+
+**Hosting** (Linux only — see `profiles/raspberrypi.json`'s `peer-host`):
+
+```json
+"wifi": {
+  "mode": "ap",
+  "interface": "wlan1",
+  "ssid": "pi-peer-link",
+  "passphrase": "changeme123",
+  "address": "192.168.50.1",
+  "prefix": 24,
+  "channel": 6,
+  "band": "2.4ghz",
+  "country_code": "US"
+}
+```
+
+`ssid`/`passphrase` (8-63 chars, WPA2-PSK) and `address`/`prefix` are
+required; `channel` (default `6`), `band` (`"2.4ghz"` default or `"5ghz"`),
+and `country_code` are optional. Set `country_code` if hostapd refuses to
+start or restricts channels — some drivers require a regulatory domain,
+especially on 5GHz. On the `nmcli` backend the interface is temporarily set
+`managed no` so `hostapd` gets exclusive control of the radio; re-running
+`internet` (or any non-`ap` wifi scenario) stops `hostapd` and hands the
+interface back to NetworkManager automatically. None of this persists
+across reboots — `hostapd`'s config and pidfile live under
+`/run/net-profile-control/` (tmpfs, gone on reboot, and never touches disk
+with the passphrase in plaintext), matching how nothing else in this
+project auto-applies at boot either.
+
+**Joining** (Linux and Windows — see `profiles/windows-host.json`'s
+`peer-join`): add `ssid`/`passphrase` to an ordinary `"static"` scenario. The
+script actively associates with that network first (`nmcli device wifi
+connect` / a temporary Windows WLAN profile + `netsh wlan connect`), then
+applies the static address exactly like `ssh-link` already does — no DHCP
+server involved on either end, both sides just need to agree on the subnet.
+
+No DHCP server runs on the hosted network — deliberately, to avoid adding a
+`dnsmasq` dependency to manage and tear down. Both ends set a static IP,
+same as `ssh-link`.
+
+**Known gaps:**
+- **AP-hosting is Linux only.** Windows' `netsh wlan hostednetwork` is
+  deprecated/unreliable across Windows 10/11 builds and adapters, and the
+  modern replacement (Mobile Hotspot) has no scriptable CLI — only WinRT
+  APIs. `net-profile-control-windows.ps1` will error clearly if you set
+  `wifi.mode: "ap"` rather than attempt something flaky. Host from the
+  Linux side; Windows can join.
+- **Joining by ssid/passphrase requires the `nmcli` backend.** Red Pitaya's
+  `systemd-networkd` doesn't itself handle wifi association (that's
+  normally `wpa_supplicant`'s job) — this is a materially different code
+  path that isn't built yet. `net-profile-control-linux.sh` errors clearly
+  if you try. A Red Pitaya can still be the `peer-host` (hostapd doesn't
+  care which backend manages the rest of the system) — it just can't be the
+  joining side yet.

@@ -353,5 +353,87 @@ scripts `linux/apply-profile.sh` and `windows/Apply-Profile.ps1`; renamed
    this session — nothing here should have changed behavior, but neither
    has been re-run on real hardware since.
 
+- **2026-07-28: wifi peer-to-peer support (`wifi.mode: "ap"` +
+  static+ssid/passphrase join), on a new branch (`wifi-ap-peer-link`), not
+  yet tested on hardware.** The README previously flagged "wifi as the
+  direct link" as a deliberately deferred gap (two wifi clients can't
+  static-IP their way into talking to each other the way ethernet can — one
+  side needs to host an access point). The user resolved the open design
+  question from a separate Claude discussion: `hostapd` over
+  ad-hoc/IBSS or wifi-direct. Three scoping decisions confirmed with the
+  user before implementing (via `AskUserQuestion`): **no DHCP server on the
+  AP** (both ends set a static IP, same as `ssh-link`, to avoid a `dnsmasq`
+  dependency to manage/tear down); **one wifi role at a time** (a scenario
+  still has a single `wifi` block — hosting an AP and being a normal
+  internet client aren't simultaneous on two adapters, at least not yet);
+  **adapter pinning by interface name**, not MAC address (Raspberry Pi OS
+  already assigns wifi names consistently via udev).
+  - Schema: new optional `interface` field (either role) pins a specific
+    adapter, bypassing auto-detect — addresses "the Pi has a built-in
+    adapter and a longer-range USB one, I want to choose." New
+    `mode: "ap"` (wifi only) broadcasts the device's own network via
+    `hostapd`: required `ssid`/`passphrase`/`address`/`prefix`, optional
+    `channel`/`band`/`country_code`. `mode: "static"` gained optional
+    `ssid`/`passphrase` (join a specific network first, then apply the
+    existing static-IP logic) — deliberately reused `"static"` instead of
+    inventing a `mode: "join"`, since it's a strict additive refinement and
+    every existing profile keeps working untouched.
+  - Linux (`net-profile-control-linux.sh`): `hostapd -B` run as a
+    script-managed background process (pidfile/conf under
+    `/run/net-profile-control/`, tmpfs — gone on reboot, passphrase never
+    touches disk), not a systemd unit — matches the project's existing
+    on-demand-only, nothing-persists-at-boot design. On the `nmcli` backend
+    the interface is set `managed no` while hosting and back to `managed
+    yes` on any non-`ap` wifi apply (this is what "run `internet` again to
+    stop hosting" resolves to). Joining by ssid/passphrase only supported on
+    the `nmcli` backend — Red Pitaya/systemd-networkd would need a
+    `wpa_supplicant`-based code path that doesn't exist yet, so it errors
+    clearly instead of silently doing nothing; a Red Pitaya *can* still be
+    the AP host, since `hostapd` doesn't care which backend manages the
+    rest of the system.
+  - **Bug caught during implementation, before it ever ran**: the first
+    draft of `stop_ap()` (called unconditionally at the top of wifi-role
+    handling, so both "leaving ap mode" and "re-entering ap mode" start
+    clean) called `kill`/`ip addr flush` even when `--dry-run` was set —
+    would have made a supposedly read-only preview actually tear down a
+    live hostapd process. Fixed by gating the whole teardown branch on
+    `DRY_RUN`. While fixing it, also hit the *exact* `set -e`/bare-`&&`
+    bug class already documented above in this file (`find_interfaces()`,
+    2026-07-27) — a second draft ended the function on
+    `[ "$DRY_RUN" -eq 0 ] && rm -f "$conf_file"` as its last statement,
+    which would silently kill the whole script via `set -e` the moment
+    `DRY_RUN=1` (the common case) reached that line. Caught this time by
+    checking for the pattern proactively rather than needing `bash -x` on
+    real hardware to find it after the fact — converted to explicit `if`
+    blocks with an explicit `return 0`, same fix shape as last time.
+  - Windows (`net-profile-control-windows.ps1`): joining by ssid/passphrase
+    implemented via a temporary WLAN profile XML + `netsh wlan connect`,
+    then the existing static-IP code path unchanged (Windows doesn't need
+    an nmcli-style pre-existing "connection" lookup — it operates on the
+    adapter's interface index directly once associated). **AP-hosting
+    deliberately NOT implemented on Windows** — `netsh wlan hostednetwork`
+    is deprecated/unreliable across Windows 10/11 builds/adapters, and the
+    modern replacement (Mobile Hotspot) has no scriptable CLI, only WinRT
+    APIs. The script errors clearly if `wifi.mode: "ap"` is requested
+    rather than shipping something flaky; documented as a known limitation
+    in the README.
+  - New paired example scenarios (same SSID/passphrase on both sides, same
+    convention as `ssh-link`'s `10.10.10.1`/`.2` pairing):
+    `profiles/raspberrypi.json`'s `peer-host` (hosts, pins `wlan1` as an
+    illustration of the `interface` field — adjust/remove per actual
+    hardware) and `profiles/windows-host.json`'s `peer-join` (joins with a
+    static `192.168.50.2/24`).
+  - **Testing status: entirely untested on real hardware.** Same sandbox
+    limitation as every prior Linux-side change in this file — no
+    `jq`/`hostapd`/`iw`/`nmcli` and no `sudo` available here, so validation
+    was `bash -n` (syntax only) + a manual re-read specifically hunting for
+    the `set -e`/bare-conditional bug class (found and fixed one, see
+    above) + `python3 -m json.tool` on both edited profile files. No `pwsh`
+    either, so the Windows changes got a read-through only, same as every
+    prior Windows-side change here. Needs a real run on the Pi (with
+    whatever wifi adapter(s) it actually has — confirm the `interface`
+    pinning example even applies) and the Windows laptop before trusting
+    any of this on real hardware.
+
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.

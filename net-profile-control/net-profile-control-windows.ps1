@@ -128,12 +128,74 @@ function Test-ValidIPv4 {
 # --- Interface discovery -----------------------------------------------------
 
 function Get-RoleAdapters {
-  param([string]$Role)
+  param([string]$Role, [string]$InterfaceName)
   $physical = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue)
+  if ($InterfaceName) {
+    return @($physical | Where-Object { $_.Name -eq $InterfaceName })
+  }
   if ($Role -eq "wifi") {
     return @($physical | Where-Object { $_.PhysicalMediaType -like "*802.11*" })
   } else {
     return @($physical | Where-Object { $_.PhysicalMediaType -eq "802.3" })
+  }
+}
+
+# --- Wifi association (for static+ssid/passphrase "join a specific network") -
+
+function Add-WlanConnection {
+  param([string]$InterfaceName, [string]$Ssid, [string]$Passphrase)
+
+  $profileXml = @"
+<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+  <name>$Ssid</name>
+  <SSIDConfig>
+    <SSID>
+      <name>$Ssid</name>
+    </SSID>
+  </SSIDConfig>
+  <connectionType>ESS</connectionType>
+  <connectionMode>manual</connectionMode>
+  <MSM>
+    <security>
+      <authEncryption>
+        <authentication>WPA2PSK</authentication>
+        <encryption>AES</encryption>
+        <useOneX>false</useOneX>
+      </authEncryption>
+      <sharedKey>
+        <keyType>passPhrase</keyType>
+        <protected>false</protected>
+        <keyMaterial>$Passphrase</keyMaterial>
+      </sharedKey>
+    </security>
+  </MSM>
+</WLANProfile>
+"@
+
+  $tempFile = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), ".xml")
+  Set-Content -Path $tempFile -Value $profileXml -Encoding UTF8
+  try {
+    & netsh wlan add profile filename="$tempFile" interface="$InterfaceName" | Out-Null
+    & netsh wlan connect name="$Ssid" ssid="$Ssid" interface="$InterfaceName" | Out-Null
+  } finally {
+    Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+  }
+
+  $timeoutSeconds = 20
+  $connected = $false
+  for ($i = 0; $i -lt $timeoutSeconds; $i++) {
+    $text = (& netsh wlan show interfaces) -join "`n"
+    if ($text -match "SSID\s*:\s*$([regex]::Escape($Ssid))\s" -and $text -match "State\s*:\s*connected") {
+      $connected = $true
+      break
+    }
+    Start-Sleep -Seconds 1
+  }
+  if ($connected) {
+    Write-Host "  Associated with `"$Ssid`"."
+  } else {
+    Write-Warning "  Did not confirm association with `"$Ssid`" within ${timeoutSeconds}s; continuing anyway (Windows may still be negotiating)."
   }
 }
 
@@ -179,13 +241,36 @@ function Set-RoleNetwork {
   $prefix = $Config.prefix
   $gateway = $Config.gateway
   $dns = $Config.dns
+  $ssid = $Config.ssid
+  $passphrase = $Config.passphrase
 
   $idx = $Adapter.ifIndex
   Write-Host "Configuring $Role ($($Adapter.Name)): mode=$mode"
 
+  if ($mode -eq "ap") {
+    Write-Error "  wifi.mode 'ap' (hosting a broadcast network) is not implemented on Windows -" -ErrorAction Continue
+    Write-Error "  netsh's hostednetwork is deprecated/unreliable and Mobile Hotspot has no" -ErrorAction Continue
+    Write-Error "  scriptable CLI. Host the AP from the Linux side (net-profile-control-linux.sh)" -ErrorAction Continue
+    Write-Error "  and use a 'static' scenario with ssid/passphrase here to join it instead." -ErrorAction Continue
+    exit 1
+  }
+
+  if ($ssid -and -not $passphrase) {
+    Write-Error "  $Role.ssid is set but passphrase is missing in profile." -ErrorAction Continue
+    exit 1
+  }
+
   if ($DryRun) {
+    if ($ssid) {
+      Write-Host "  [dry-run] would join wifi network `"$ssid`" on $($Adapter.Name)"
+    }
     Write-Host "  [dry-run] would set mode=$mode address=$address/$prefix gateway=$gateway dns=$($dns -join ',')"
     return
+  }
+
+  if ($ssid) {
+    Write-Host "  Joining wifi network `"$ssid`" on $($Adapter.Name)..."
+    Add-WlanConnection -InterfaceName $Adapter.Name -Ssid $ssid -Passphrase $passphrase
   }
 
   if ($mode -eq "dhcp") {
@@ -263,14 +348,18 @@ foreach ($role in @("ethernet", "wifi")) {
     continue
   }
 
-  $candidates = Get-RoleAdapters -Role $role
+  $candidates = Get-RoleAdapters -Role $role -InterfaceName $config.interface
   if ($candidates.Count -eq 0) {
     Write-Host ""
-    Write-Warning "No $role adapter found on this machine, skipping."
+    if ($config.interface) {
+      Write-Warning "No adapter named '$($config.interface)' found on this machine, skipping $role."
+    } else {
+      Write-Warning "No $role adapter found on this machine, skipping."
+    }
     continue
   }
   if ($candidates.Count -gt 1) {
-    Write-Warning "Multiple candidate $role adapters found ($(($candidates | ForEach-Object { $_.Name }) -join ', ')); using '$($candidates[0].Name)'."
+    Write-Warning "Multiple candidate $role adapters found ($(($candidates | ForEach-Object { $_.Name }) -join ', ')); using '$($candidates[0].Name)'. Set 'interface' in the profile to pin a specific one."
   }
   $adapter = $candidates[0]
 

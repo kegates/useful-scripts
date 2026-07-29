@@ -17,5 +17,17 @@
       "gateway": null,
       "dns": []
     }
+  },
+  "peer-join": {
+    "description": "Join the Raspberry Pi's broadcast wifi network (see raspberrypi.json's peer-host scenario) directly over the air and set a static IP on the same subnet, for SSH when no shared router is available. Ethernet is left alone.",
+    "wifi": {
+      "mode": "static",
+      "ssid": "pi-peer-link",
+      "passphrase": "changeme123",
+      "address": "192.168.50.2",
+      "prefix": 24,
+      "gateway": null,
+      "dns": []
+    }
   }
 }
