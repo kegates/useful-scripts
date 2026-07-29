@@ -353,5 +353,21 @@ scripts `linux/apply-profile.sh` and `windows/Apply-Profile.ps1`; renamed
    this session — nothing here should have changed behavior, but neither
    has been re-run on real hardware since.
 
+**2026-07-28: wifi peer-to-peer work is happening on a separate branch,
+`wifi-ap-peer-link` (pushed to origin), not on `main`.** The "reverse
+scenario (wired internet + wifi as the direct SSH link)" gap flagged above
+as deliberately deferred is being built out there — `wifi.mode: "ap"`
+(hostapd-based hosting) plus static-mode `ssid`/`passphrase` joining, an
+`interface` field to pin a specific adapter, and new `peer-host`/`peer-join`/
+`static-wifi` example scenarios. Reason for the separate branch: `main` was
+still mid-testing on existing features (see the ethernet TODOs above) and
+the user didn't want a large, not-yet-hardware-tested change risking that.
+The two branches' `CONTEXT.md`/profile files/scripts will diverge until
+merged — if you're working on `main` and something here looks inconsistent
+with what you'd expect (e.g. wifi profile fields you don't recognize), check
+`wifi-ap-peer-link` before assuming this file is wrong; it's likely just
+not merged yet. See that branch's own `CONTEXT.md` for the full design
+rationale and testing status of that work.
+
 **Not yet built:** everything else. This is the first of what's meant to be
 a growing set of cross-device scripts in this repo.
