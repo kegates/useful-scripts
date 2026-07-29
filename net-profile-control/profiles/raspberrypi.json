@@ -18,6 +18,16 @@
       "dns": []
     }
   },
+  "static-wifi": {
+    "description": "Give this Pi a fixed IP on its regular wifi network (e.g. so SSH access doesn't depend on a DHCP reservation), instead of the DHCP wifi in 'internet'. Assumes the wifi interface is already associated with that network (joined once via raspi-config, nmcli, or similar) - no ssid/passphrase needed since this isn't joining a new network, just changing the addressing on one it's already on. Adjust address/gateway/dns to match your actual network. Ethernet is left alone.",
+    "wifi": {
+      "mode": "static",
+      "address": "192.168.1.50",
+      "prefix": 24,
+      "gateway": "192.168.1.1",
+      "dns": ["192.168.1.1"]
+    }
+  },
   "peer-host": {
     "description": "Broadcast this Pi's own wifi network (hostapd) so another device can join directly over the air, e.g. for SSH when no shared router is available. Ethernet is left alone. Run 'internet' again to stop hosting and resume normal wifi. 'interface' pins the USB adapter (longer range) instead of the built-in one - remove it, or change it to match actual hardware, if there's only one wifi adapter.",
     "wifi": {
