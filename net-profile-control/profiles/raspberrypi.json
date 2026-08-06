@@ -8,6 +8,12 @@
       "mode": "dhcp"
     }
   },
+  "internet-ethernet": {
+    "description": "Normal internet usage for ethernet: ethernet on DHCP.",
+    "ethernet": {
+      "mode": "dhcp"
+    }
+  },
   "ssh-link": {
     "description": "Direct ethernet cable to the laptop for SSH. Wifi is left alone so this device keeps normal internet access.",
     "ethernet": {
@@ -16,6 +22,12 @@
       "prefix": 24,
       "gateway": null,
       "dns": []
+    }
+  },
+  "internet-wifi": {
+    "description": "Normal internet usage for wifi: wifi on DHCP.",
+    "wifi": {
+      "mode": "dhcp"
     }
   },
   "static-wifi": {
@@ -32,7 +44,7 @@
     "description": "Broadcast this Pi's own wifi network (hostapd) so another device can join directly over the air, e.g. for SSH when no shared router is available. Ethernet is left alone. Run 'internet' again to stop hosting and resume normal wifi. 'interface' pins the USB adapter (longer range) instead of the built-in one - remove it, or change it to match actual hardware, if there's only one wifi adapter.",
     "wifi": {
       "mode": "ap",
-      "interface": "wlan1",
+      "interface": "wlan0",
       "ssid": "pi-peer-link",
       "passphrase": "changeme123",
       "address": "192.168.50.1",
